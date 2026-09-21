@@ -1,11 +1,15 @@
+// `forUser` (an employeeId) targets a notification at one person — used for
+// task assignment/reassignment/review/approval/comment events created live
+// via notifyUser(). `forUser: null` means broadcast (visible to whoever is
+// signed in), which is how the original seed notifications behave.
 export const notifications = [
-  { id: 'NOT-1', category: 'Approvals', title: 'Purchase Order PO-2024-144 awaiting your approval', time: '2024-09-19T08:00:00', read: false, priority: 'high', link: '/procurement/purchase-orders' },
-  { id: 'NOT-2', category: 'Tasks', title: 'Task "Review Skyline Tower facade mockup photos" is due tomorrow', time: '2024-09-19T07:30:00', read: false, priority: 'medium', link: '/tasks/my-tasks' },
-  { id: 'NOT-3', category: 'Finance', title: 'Invoice INV-2024-0129 is now overdue', time: '2024-09-18T18:00:00', read: false, priority: 'high', link: '/billing/invoices' },
-  { id: 'NOT-4', category: 'Projects', title: 'Milestone "Structure Topping Out" is 85% complete', time: '2024-09-18T16:00:00', read: true, priority: 'low', link: '/projects/PRJ-2024-001' },
-  { id: 'NOT-5', category: 'HR', title: 'Pooja Trivedi requested Earned Leave (Oct 2 - Oct 8)', time: '2024-09-18T11:00:00', read: false, priority: 'medium', link: '/hr/leave' },
-  { id: 'NOT-6', category: 'System', title: 'Monthly backup completed successfully', time: '2024-09-18T02:00:00', read: true, priority: 'low', link: '/administration/system-settings' },
-  { id: 'NOT-7', category: 'Projects', title: 'New drawing revision uploaded for LAX-SCT-S-301', time: '2024-09-14T13:00:00', read: true, priority: 'medium', link: '/design/drawings' },
+  { id: 'NOT-1', category: 'Approvals', title: 'Purchase Order PO-2024-144 awaiting your approval', time: '2024-09-19T08:00:00', read: false, priority: 'high', link: '/procurement/purchase-orders', forUser: null },
+  { id: 'NOT-2', category: 'Tasks', title: 'Task "Review Skyline Tower facade mockup photos" is due tomorrow', time: '2024-09-19T07:30:00', read: false, priority: 'medium', link: '/tasks/my-tasks', forUser: null },
+  { id: 'NOT-3', category: 'Finance', title: 'Invoice INV-2024-0129 is now overdue', time: '2024-09-18T18:00:00', read: false, priority: 'high', link: '/billing/invoices', forUser: null },
+  { id: 'NOT-4', category: 'Projects', title: 'Milestone "Structure Topping Out" is 85% complete', time: '2024-09-18T16:00:00', read: true, priority: 'low', link: '/projects/PRJ-2024-001', forUser: null },
+  { id: 'NOT-5', category: 'HR', title: 'Pooja Trivedi requested Earned Leave (Oct 2 - Oct 8)', time: '2024-09-18T11:00:00', read: false, priority: 'medium', link: '/hr/leave', forUser: null },
+  { id: 'NOT-6', category: 'System', title: 'Monthly backup completed successfully', time: '2024-09-18T02:00:00', read: true, priority: 'low', link: '/administration/system-settings', forUser: null },
+  { id: 'NOT-7', category: 'Projects', title: 'New drawing revision uploaded for LAX-SCT-S-301', time: '2024-09-14T13:00:00', read: true, priority: 'medium', link: '/design/drawings', forUser: null },
 ]
 
 export const chatChannels = [

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -14,6 +14,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar'
 import { milestones } from '../../data/tasks'
 import { projects, getProjectName } from '../../data/projects'
 import { nextId } from '../../api/mockClient'
+import { taskApi } from '../../api/taskApi'
 
 const milestoneStatuses = ['completed', 'in-progress', 'pending', 'delayed']
 
@@ -25,7 +26,14 @@ export default function ProjectMilestones() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [drawer, setDrawer] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [progressMap, setProgressMap] = useState({})
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  useEffect(() => {
+    Promise.all(milestones.map((m) => taskApi.milestoneProgress(m.id).then((p) => [m.id, p]))).then((entries) => {
+      setProgressMap(Object.fromEntries(entries))
+    })
+  }, [version])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -80,17 +88,30 @@ export default function ProjectMilestones() {
           <Card><EmptyState title="No milestones found" description="Try adjusting filters, or create a new milestone." action={{ label: 'New Milestone', icon: Plus, onClick: () => setDrawer(true) }} /></Card>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((m) => (
-              <Card key={m.id} className="flex cursor-pointer flex-col gap-3" onClick={() => navigate(`/projects/${m.project}/milestones`)}>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-ink">{m.name}</p>
-                  <StatusBadge status={m.status} />
-                </div>
-                <p className="text-xs text-ink-faint">{getProjectName(m.project)}</p>
-                <p className="text-xs text-ink-faint">Due {new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(m.dueDate))}</p>
-                <ProgressBar value={m.progress} color="auto" showLabel />
-              </Card>
-            ))}
+            {filtered.map((m) => {
+              const computed = progressMap[m.id]
+              return (
+                <Card key={m.id} className="flex cursor-pointer flex-col gap-3" onClick={() => navigate(`/projects/${m.project}/milestones`)}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-ink">{m.name}</p>
+                    <StatusBadge status={m.status} />
+                  </div>
+                  <p className="text-xs text-ink-faint">{getProjectName(m.project)}</p>
+                  <p className="text-xs text-ink-faint">Due {new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(m.dueDate))}</p>
+                  {computed ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-xs text-ink-faint">
+                        <span>{computed.done}/{computed.total} tasks</span>
+                        <span className="font-medium text-ink">{computed.percent}%</span>
+                      </div>
+                      <ProgressBar value={computed.percent} color="auto" />
+                    </div>
+                  ) : (
+                    <ProgressBar value={m.progress} color="auto" showLabel />
+                  )}
+                </Card>
+              )
+            })}
           </div>
         )}
       </PageBody>

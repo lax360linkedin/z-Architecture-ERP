@@ -14,7 +14,8 @@ import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { dashboardApi } from '../../api/dashboardApi'
-import { taskApi, timesheetApi, meetingApi } from '../../api/collaborationApi'
+import { taskApi } from '../../api/taskApi'
+import { timesheetApi, meetingApi } from '../../api/collaborationApi'
 import { formatCurrency, formatDate, formatRelativeTime } from '../../utils/format'
 import { useAuth } from '../../context/AuthContext'
 import { usePermissions } from '../../context/PermissionContext'
@@ -54,9 +55,9 @@ function MyWorkDashboard({ user, greeting }) {
   const [upcomingMeetings, setUpcomingMeetings] = useState([])
 
   useEffect(() => {
-    Promise.all([taskApi.myTasks.all(), timesheetApi.all(), meetingApi.all()]).then(([allTasks, allTimesheets, allMeetings]) => {
-      const mine = user?.employeeId ? allTasks.filter((t) => t.assignee === user.employeeId) : allTasks
-      const openTasks = mine.filter((t) => t.status !== 'Done').sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    Promise.all([taskApi.allForUser(user), timesheetApi.all(), meetingApi.all()]).then(([allTasks, allTimesheets, allMeetings]) => {
+      const mine = user?.employeeId ? allTasks.filter((t) => t.assignedTo === user.employeeId) : allTasks
+      const openTasks = mine.filter((t) => t.status !== 'Completed' && t.status !== 'Approved').sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
       setMyTasks(openTasks)
 
       const now = new Date()

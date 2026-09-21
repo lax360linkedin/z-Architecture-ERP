@@ -14,6 +14,7 @@ import { PageLoader } from '../../components/layout/PageLoader'
 import { hrApi } from '../../api/hrApi'
 import { logAudit } from '../../api/auditLogApi'
 import { useAuth } from '../../context/AuthContext'
+import { usePermissions } from '../../context/PermissionContext'
 import { employees, getEmployeeById } from '../../data/employees'
 import { formatDate } from '../../utils/format'
 
@@ -22,6 +23,11 @@ const BALANCE_MAX = { 'Casual Leave': 12, 'Sick Leave': 10, 'Earned Leave': 18 }
 
 export default function Leave() {
   const { user } = useAuth()
+  const { can, isRole } = usePermissions()
+  const allowDecide = can('hr', 'edit')
+  // Employee only has hr.viewSelf — this becomes a "My Leave" view of their
+  // own requests and balance, with no approve/reject (that needs hr.edit).
+  const selfOnly = isRole('employee')
   const [view, setView] = useState('requests')
   const [loading, setLoading] = useState(true)
   const [requests, setRequests] = useState([])
@@ -32,17 +38,18 @@ export default function Leave() {
   async function load() {
     setLoading(true)
     const [reqs, hols] = await Promise.all([hrApi.leaveRequests(), hrApi.holidays()])
-    setRequests(reqs)
+    setRequests(selfOnly ? reqs.filter((r) => r.employee === user?.employeeId) : reqs)
     setHolidays(hols)
-    const sampleEmployees = employees.slice(0, 8)
-    const balancePairs = await Promise.all(sampleEmployees.map(async (e) => [e.id, await hrApi.leaveBalanceFor(e.id)]))
+    const balanceEmployees = selfOnly ? employees.filter((e) => e.id === user?.employeeId) : employees.slice(0, 8)
+    const balancePairs = await Promise.all(balanceEmployees.map(async (e) => [e.id, await hrApi.leaveBalanceFor(e.id)]))
     setBalances(Object.fromEntries(balancePairs))
     setLoading(false)
   }
 
   useEffect(() => {
     load()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selfOnly])
 
   async function handleDecision(id, approve) {
     await hrApi.approveLeave(id, approve)
@@ -58,8 +65,8 @@ export default function Leave() {
   return (
     <div>
       <PageHeader
-        title="Leave Management"
-        subtitle={`${requests.filter((r) => r.status === 'pending').length} requests awaiting approval`}
+        title={selfOnly ? 'My Leave' : 'Leave Management'}
+        subtitle={selfOnly ? `${requests.length} leave request(s)` : `${requests.filter((r) => r.status === 'pending').length} requests awaiting approval`}
         actions={<Pills value={view} onChange={setView} options={[{ value: 'requests', label: 'Requests' }, { value: 'balances', label: 'Balances' }, { value: 'holidays', label: 'Holiday Calendar' }]} />}
       />
       <PageBody>
@@ -94,7 +101,7 @@ export default function Leave() {
                       <p className="text-xs text-ink-muted">{formatDate(r.from)} – {formatDate(r.to)} · {r.days} day(s)</p>
                       <p className="text-sm text-ink">{r.reason}</p>
                       <p className="text-xs text-ink-faint">Applied {formatDate(r.appliedOn)}</p>
-                      {r.status === 'pending' && (
+                      {r.status === 'pending' && allowDecide && (
                         <div className="mt-1 flex gap-2 border-t border-border-subtle pt-3">
                           <Button size="sm" variant="secondary" className="flex-1 justify-center" icon={Check} onClick={() => handleDecision(r.id, true)}>Approve</Button>
                           <Button size="sm" variant="ghost" className="flex-1 justify-center" icon={X} onClick={() => handleDecision(r.id, false)}>Reject</Button>

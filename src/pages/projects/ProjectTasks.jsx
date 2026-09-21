@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, Pencil, Trash2, MoreHorizontal, RefreshCw, Check, Lock, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, MoreHorizontal, RefreshCw, Check, ChevronDown } from 'lucide-react'
 import { PageHeader, PageBody } from '../../components/layout/PageHeader'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -12,16 +12,17 @@ import { Dropdown, DropdownItem, DropdownSeparator } from '../../components/ui/D
 import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { PageLoader } from '../../components/layout/PageLoader'
-import { taskApi } from '../../api/collaborationApi'
-import { taskPriorities } from '../../data/tasks'
-import { getProjectName, projects } from '../../data/projects'
+import { taskApi } from '../../api/taskApi'
+import { TASK_STATUSES, TASK_PRIORITIES, TASK_TYPES } from '../../data/tasks'
+import { projects } from '../../data/projects'
 import { getEmployeeName, employees } from '../../data/employees'
+import { useAuth } from '../../context/AuthContext'
 import { formatDate, classNames } from '../../utils/format'
 
-const priorityColor = { low: 'neutral', medium: 'warning', high: 'danger', urgent: 'danger' }
-const phases = ['Planning', 'Design', 'Structure', 'Construction', 'Facade', 'Finishing', 'Execution']
+const priorityColor = { Low: 'neutral', Medium: 'info', High: 'warning', Critical: 'danger' }
 
 export default function ProjectTasks() {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState([])
   const [query, setQuery] = useState('')
@@ -33,33 +34,33 @@ export default function ProjectTasks() {
 
   async function load() {
     setLoading(true)
-    const data = await taskApi.teamTasks.all()
+    const data = await taskApi.allForUser(user)
     setTasks(data)
     setLoading(false)
   }
 
   useEffect(() => {
     load()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   function openCreate(projectId) {
-    reset({ name: '', project: projectId || projects[0]?.id || '', phase: phases[0], assignee: 'EMP-011', priority: 'medium', status: 'To Do', startDate: '', dueDate: '', dependsOn: '' })
+    reset({ title: '', project: projectId || projects[0]?.id || '', type: TASK_TYPES[0], assignedTo: employees[0]?.id || '', priority: 'Medium', status: 'Not Started', startDate: '', dueDate: '' })
     setDrawer({ open: true, mode: 'create', record: null })
   }
   function openEdit(record) {
-    reset({ ...record, dependsOn: record.dependsOn || '' })
+    reset({ ...record })
     setDrawer({ open: true, mode: 'edit', record })
   }
 
   async function onSubmit(values) {
     setSaving(true)
     try {
-      const payload = { ...values, dependsOn: values.dependsOn || null }
       if (drawer.mode === 'create') {
-        await taskApi.teamTasks.create(payload)
+        await taskApi.create({ ...values }, user)
         toast.success('Task created')
       } else {
-        await taskApi.teamTasks.update(drawer.record.id, payload)
+        await taskApi.update(drawer.record.id, values, user)
         toast.success('Task updated')
       }
       setDrawer({ open: false, mode: 'create', record: null })
@@ -74,7 +75,7 @@ export default function ProjectTasks() {
   async function confirmDelete() {
     setSaving(true)
     try {
-      await taskApi.teamTasks.remove(confirm.record.id)
+      await taskApi.remove(confirm.record.id, user)
       toast.success('Task deleted')
       setConfirm({ open: false, record: null })
       load()
@@ -85,13 +86,13 @@ export default function ProjectTasks() {
 
   async function changeStatus(task, status) {
     if (task.status === status) return
-    await taskApi.moveTask(task.id, status, true)
-    toast.success(`Marked "${task.name}" as ${status}`)
+    await taskApi.changeStatus(task.id, status, user)
+    toast.success(`Marked "${task.title}" as ${status}`)
     load()
   }
 
   const q = query.trim().toLowerCase()
-  const filtered = q ? tasks.filter((t) => t.name.toLowerCase().includes(q) || t.phase.toLowerCase().includes(q)) : tasks
+  const filtered = q ? tasks.filter((t) => t.title.toLowerCase().includes(q) || (t.type || '').toLowerCase().includes(q)) : tasks
 
   const grouped = projects
     .map((p) => ({ project: p, items: filtered.filter((t) => t.project === p.id) }))
@@ -107,11 +108,11 @@ export default function ProjectTasks() {
     <div>
       <PageHeader
         title="Project Tasks"
-        subtitle={`${tasks.length} WBS tasks grouped by project`}
+        subtitle={`${tasks.length} tasks grouped by project`}
         actions={<Button icon={Plus} onClick={() => openCreate()}>New Task</Button>}
       />
       <PageBody className="flex flex-col gap-4">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search tasks by name or phase…" className="max-w-sm" />
+        <SearchInput value={query} onChange={setQuery} placeholder="Search tasks by title or type…" className="max-w-sm" />
 
         {grouped.length === 0 ? (
           <Card><EmptyState title="No tasks found" description="Create your first project task to get started." action={{ label: 'New Task', icon: Plus, onClick: () => openCreate() }} /></Card>
@@ -120,7 +121,13 @@ export default function ProjectTasks() {
             const isCollapsed = collapsed.includes(project.id)
             return (
               <Card key={project.id} padded={false}>
-                <button onClick={() => toggle(project.id)} className="flex w-full items-center justify-between gap-3 px-5 py-4">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggle(project.id)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(project.id)}
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 px-5 py-4 focus-ring"
+                >
                   <div className="flex items-center gap-2.5">
                     <ChevronDown className={classNames('h-4 w-4 text-ink-faint transition-transform', isCollapsed && '-rotate-90')} />
                     <p className="text-sm font-semibold text-ink">{project.name}</p>
@@ -129,7 +136,7 @@ export default function ProjectTasks() {
                   <Button size="sm" variant="secondary" icon={Plus} onClick={(e) => { e.stopPropagation(); openCreate(project.id) }}>
                     Add Task
                   </Button>
-                </button>
+                </div>
                 {!isCollapsed && (
                   items.length === 0 ? (
                     <div className="px-5 pb-5"><EmptyState title="No tasks for this project yet" /></div>
@@ -139,7 +146,7 @@ export default function ProjectTasks() {
                         <thead>
                           <tr className="border-b border-border text-xs text-ink-muted">
                             <th className="px-5 py-2.5 font-medium">Task</th>
-                            <th className="px-5 py-2.5 font-medium">Phase</th>
+                            <th className="px-5 py-2.5 font-medium">Type</th>
                             <th className="px-5 py-2.5 font-medium">Assignee</th>
                             <th className="px-5 py-2.5 font-medium">Priority</th>
                             <th className="px-5 py-2.5 font-medium">Status</th>
@@ -151,15 +158,15 @@ export default function ProjectTasks() {
                           {items.map((t) => (
                             <tr key={t.id} className="cursor-pointer border-b border-border-subtle last:border-0 hover:bg-surface-subtle" onClick={() => openEdit(t)}>
                               <td className="px-5 py-3">
-                                <p className="font-medium text-ink">{t.name}</p>
-                                {t.dependsOn && (
+                                <p className="font-medium text-ink">{t.title}</p>
+                                {!taskApi.isReady(t) && (
                                   <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">
-                                    <Lock className="h-3 w-3" /> Blocked by {t.dependsOn}
+                                    Blocked by dependency
                                   </span>
                                 )}
                               </td>
-                              <td className="px-5 py-3"><Badge>{t.phase}</Badge></td>
-                              <td className="px-5 py-3 text-ink-muted">{getEmployeeName(t.assignee)}</td>
+                              <td className="px-5 py-3"><Badge>{t.type}</Badge></td>
+                              <td className="px-5 py-3 text-ink-muted">{getEmployeeName(t.assignedTo)}</td>
                               <td className="px-5 py-3"><Badge color={priorityColor[t.priority] || 'neutral'}>{t.priority}</Badge></td>
                               <td className="px-5 py-3"><StatusBadge status={t.status} /></td>
                               <td className="px-5 py-3 text-ink-muted">{formatDate(t.dueDate)}</td>
@@ -167,7 +174,7 @@ export default function ProjectTasks() {
                                 <Dropdown align="right" width="w-52" trigger={<button className="flex h-8 w-8 items-center justify-center rounded-md text-ink-faint hover:bg-surface-raised hover:text-ink"><MoreHorizontal className="h-4 w-4" /></button>}>
                                   <DropdownItem icon={Pencil} onClick={() => openEdit(t)}>Edit</DropdownItem>
                                   <DropdownSeparator />
-                                  {taskApi.taskStatuses.map((s) => (
+                                  {TASK_STATUSES.map((s) => (
                                     <DropdownItem key={s} icon={t.status === s ? Check : RefreshCw} onClick={() => changeStatus(t, s)}>
                                       Mark as {s}
                                     </DropdownItem>
@@ -201,8 +208,8 @@ export default function ProjectTasks() {
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Field label="Task Name" required error={errors.name?.message}>
-            <Input {...register('name', { required: 'Task name is required' })} />
+          <Field label="Task Title" required error={errors.title?.message}>
+            <Input {...register('title', { required: 'Task title is required' })} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Project">
@@ -210,21 +217,21 @@ export default function ProjectTasks() {
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </Field>
-            <Field label="Phase">
-              <Select {...register('phase')}>
-                {phases.map((p) => <option key={p} value={p}>{p}</option>)}
+            <Field label="Type">
+              <Select {...register('type')}>
+                {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </Select>
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Assignee">
-              <Select {...register('assignee')}>
+              <Select {...register('assignedTo')}>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </Select>
             </Field>
             <Field label="Priority">
               <Select {...register('priority')}>
-                {taskPriorities.map((p) => <option key={p} value={p}>{p}</option>)}
+                {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </Select>
             </Field>
           </div>
@@ -232,16 +239,11 @@ export default function ProjectTasks() {
             <Field label="Start Date"><Input type="date" {...register('startDate')} /></Field>
             <Field label="Due Date"><Input type="date" {...register('dueDate')} /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Status">
-              <Select {...register('status')}>
-                {taskApi.taskStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
-            <Field label="Depends on (optional Task ID)">
-              <Input placeholder="e.g. TSK-1001" {...register('dependsOn')} />
-            </Field>
-          </div>
+          <Field label="Status">
+            <Select {...register('status')}>
+              {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
         </form>
       </Drawer>
 

@@ -48,6 +48,7 @@ export const ROUTE_PERMISSIONS = {
   '/administration/users': 'administration.view',
   '/administration/roles': 'administration.roles',
   '/administration/workflows': 'administration.view',
+  '/administration/task-types': 'administration.view',
   '/administration/tax-settings': 'administration.view',
   '/administration/numbering': 'administration.view',
   '/administration/audit-logs': 'administration.auditLogs',
@@ -62,24 +63,43 @@ export const ROUTE_PERMISSIONS = {
   '/finance/reports': 'finance.view',
   '/hr/employees': 'hr.view',
   '/hr/departments': 'hr.view',
-  '/hr/attendance': 'hr.view',
-  '/hr/leave': 'hr.view',
   '/hr/recruitment': 'hr.view',
   '/hr/performance': 'hr.view',
-  '/hr/documents': 'hr.view',
+  // Attendance, Leave and Employee Documents accept either the full `hr.view`
+  // grant (Admin/HR see everyone) or the narrower `hr.viewSelf` grant
+  // (Employee sees only their own records, enforced inside each page).
+  '/hr/attendance': 'hr.viewSelf',
+  '/hr/leave': 'hr.viewSelf',
+  '/hr/documents': 'hr.viewSelf',
 }
 
 // Project-level access: who may open a given project, independent of the
-// blanket "projects.view" module permission. Super Admin/Admin/Director and
-// company-wide finance/procurement roles see every project; everyone else
-// must be the assigned manager or a team member.
-const GLOBAL_PROJECT_ROLES = ['super_admin', 'admin', 'director', 'finance_manager', 'procurement_manager']
+// blanket "projects.view" module permission. Super Admin, Admin and MD see
+// every project; everyone else (Employee) must be the assigned manager or a
+// team member.
+export const GLOBAL_PROJECT_ROLES = ['super_admin', 'admin', 'md']
 
 export function canAccessProject(user, project) {
   if (!user || !project) return false
   if (GLOBAL_PROJECT_ROLES.includes(user.roleId)) return true
   if (project.manager === user.employeeId) return true
   if ((project.team || []).includes(user.employeeId)) return true
+  return false
+}
+
+// Task-level access: who may open/act on a given task, independent of the
+// blanket "tasks.view" module permission. Super Admin, Admin and MD see
+// every task (company/project-level visibility); Employee only sees tasks
+// they're assigned to, created, or are reviewing — "only records and
+// actions assigned to that employee" per the RBAC spec.
+export const GLOBAL_TASK_ROLES = ['super_admin', 'admin', 'md']
+
+export function canAccessTask(user, taskRecord) {
+  if (!user || !taskRecord) return false
+  if (GLOBAL_TASK_ROLES.includes(user.roleId)) return true
+  if (taskRecord.assignedTo === user.employeeId) return true
+  if (taskRecord.createdBy === user.employeeId) return true
+  if (taskRecord.reviewer === user.employeeId) return true
   return false
 }
 

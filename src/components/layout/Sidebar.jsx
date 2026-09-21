@@ -10,19 +10,28 @@ import { classNames } from '../../utils/format'
 import { Logo } from './Logo'
 import { Tooltip } from '../ui/Dropdown'
 
-// Filters the nav tree down to what the current user may view. A group with
-// a `module` is dropped entirely if the user lacks `<module>.view`; a child
-// with its own `module` override (e.g. HR -> Payroll) is checked separately
-// so a group can stay visible while one restricted child inside it is hidden.
+// Filters the nav tree down to what the current user may view. A leaf item
+// (no children) is gated directly on its own `module`+`action` (action
+// defaults to 'view'). A group's children are each gated on their own
+// `module`/`action` when set, falling back to the group's `module` + 'view'
+// otherwise (this is how most groups still work — one permission covers
+// every child) — and the group itself is shown whenever at least one child
+// survives, so a group with no single `module` (e.g. HR, where Employee only
+// has `hr.viewSelf` for Attendance/Leave/Documents while Admin/HR also see
+// the full employee directory) can partially reveal itself per role.
 function useVisibleNav() {
   const { can } = usePermissions()
   return navConfig.reduce((acc, item) => {
-    if (item.module && !can(item.module, 'view')) return acc
     if (item.children) {
-      const children = item.children.filter((child) => !child.module || can(child.module, 'view'))
+      const children = item.children.filter((child) => {
+        const module = child.module || item.module
+        if (!module) return true
+        return can(module, child.action || 'view')
+      })
       if (children.length === 0) return acc
       acc.push({ ...item, children })
     } else {
+      if (item.module && !can(item.module, item.action || 'view')) return acc
       acc.push(item)
     }
     return acc

@@ -1,214 +1,124 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Plus, Pencil, Trash2, MoreHorizontal, RefreshCw, Check } from 'lucide-react'
+import { Plus, Calendar, FolderKanban } from 'lucide-react'
 import { PageHeader, PageBody } from '../../components/layout/PageHeader'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
-import { SearchInput, Select, Field, Input } from '../../components/ui/Input'
-import { DataTable } from '../../components/ui/DataTable'
-import { Drawer } from '../../components/ui/Drawer'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { Dropdown, DropdownItem, DropdownSeparator } from '../../components/ui/Dropdown'
+import { Select } from '../../components/ui/Input'
+import { Tabs } from '../../components/ui/Tabs'
 import { Badge, StatusBadge } from '../../components/ui/Badge'
-import { useDataTable } from '../../hooks/useDataTable'
-import { taskApi } from '../../api/collaborationApi'
-import { taskPriorities } from '../../data/tasks'
-import { getProjectName, projects } from '../../data/projects'
-import { getEmployeeName, employees } from '../../data/employees'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PageLoader } from '../../components/layout/PageLoader'
+import { taskApi } from '../../api/taskApi'
+import { TASK_STATUSES } from '../../data/tasks'
+import { getProjectName } from '../../data/projects'
 import { formatDate } from '../../utils/format'
 import { useAuth } from '../../context/AuthContext'
 import { usePermissions } from '../../context/PermissionContext'
 
-const priorityColor = { low: 'neutral', medium: 'warning', high: 'danger', urgent: 'danger' }
+const priorityColor = { Low: 'neutral', Medium: 'info', High: 'warning', Critical: 'danger' }
 
 export default function MyTasks() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { can } = usePermissions()
   const allowCreate = can('tasks', 'create')
   const allowEdit = can('tasks', 'edit')
-  const allowDelete = can('tasks', 'delete')
-  const table = useDataTable(taskApi.myTasks.list, { pageSize: 8, initialFilters: { status: 'all', priority: 'all' } })
-  const [drawer, setDrawer] = useState({ open: false, mode: 'create', record: null })
-  const [confirm, setConfirm] = useState({ open: false, record: null })
-  const [selected, setSelected] = useState([])
-  const [saving, setSaving] = useState(false)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
-  function openCreate() {
-    reset({ title: '', project: '', priority: 'medium', status: 'To Do', dueDate: '', assignee: user?.id || 'EMP-002' })
-    setDrawer({ open: true, mode: 'create', record: null })
-  }
-  function openEdit(record) {
-    reset(record)
-    setDrawer({ open: true, mode: 'edit', record })
+  const [loading, setLoading] = useState(true)
+  const [myTasks, setMyTasks] = useState([])
+  const [section, setSection] = useState('assigned')
+
+  async function load() {
+    setLoading(true)
+    // allForUser already scopes to what this role can reach; narrowing to
+    // assignedTo === me keeps this page strictly "my" work, including for
+    // Employee (dataScope "own") where the scoping already matches.
+    const all = await taskApi.allForUser(user)
+    setMyTasks(all.filter((t) => t.assignedTo === user?.employeeId))
+    setLoading(false)
   }
 
-  async function onSubmit(values) {
-    setSaving(true)
-    try {
-      const payload = { ...values, project: values.project || null }
-      if (drawer.mode === 'create') {
-        await taskApi.myTasks.create(payload)
-        toast.success('Task created')
-      } else {
-        await taskApi.myTasks.update(drawer.record.id, payload)
-        toast.success('Task updated')
-      }
-      setDrawer({ open: false, mode: 'create', record: null })
-      table.refresh()
-    } catch (err) {
-      toast.error(err.message || 'Something went wrong')
-    } finally {
-      setSaving(false)
-    }
-  }
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
-  async function confirmDelete() {
-    setSaving(true)
-    try {
-      await taskApi.myTasks.remove(confirm.record.id)
-      toast.success('Task deleted')
-      setConfirm({ open: false, record: null })
-      table.refresh()
-    } finally {
-      setSaving(false)
-    }
-  }
+  const sections = useMemo(() => {
+    const dueToday = myTasks.filter((t) => taskApi.isDueToday(t))
+    const overdue = myTasks.filter((t) => taskApi.isOverdue(t))
+    const upcoming = myTasks.filter((t) => taskApi.isDueThisWeek(t) && !taskApi.isOverdue(t))
+    const completed = myTasks.filter((t) => t.status === 'Completed')
+    const highPriority = myTasks.filter((t) => t.priority === 'High' || t.priority === 'Critical')
+    const blocked = myTasks.filter((t) => t.status === 'Blocked' || !taskApi.isReady(t))
+    return { assigned: myTasks, dueToday, upcoming, overdue, completed, highPriority, blocked }
+  }, [myTasks])
 
-  async function changeStatus(task, status) {
-    if (task.status === status) return
-    await taskApi.moveTask(task.id, status)
-    toast.success(`Marked "${task.title}" as ${status}`)
-    table.refresh()
-  }
-
-  const columns = [
-    { key: 'title', header: 'Title', sortable: true, render: (t) => <span className="font-medium text-ink">{t.title}</span> },
-    { key: 'project', header: 'Project', render: (t) => (t.project ? getProjectName(t.project) : '—') },
-    { key: 'priority', header: 'Priority', render: (t) => <Badge color={priorityColor[t.priority] || 'neutral'}>{t.priority}</Badge> },
-    { key: 'status', header: 'Status', render: (t) => <StatusBadge status={t.status} /> },
-    { key: 'dueDate', header: 'Due Date', sortable: true, render: (t) => formatDate(t.dueDate) },
-    { key: 'assignee', header: 'Assignee', render: (t) => getEmployeeName(t.assignee) },
-    ...(allowEdit || allowDelete
-      ? [{
-          key: '__actions', header: '', className: 'text-right', render: (t) => (
-            <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-              <Dropdown align="right" width="w-52" trigger={<button className="flex h-8 w-8 items-center justify-center rounded-md text-ink-faint hover:bg-surface-subtle hover:text-ink"><MoreHorizontal className="h-4 w-4" /></button>}>
-                {allowEdit && <DropdownItem icon={Pencil} onClick={() => openEdit(t)}>Edit</DropdownItem>}
-                {allowEdit && <DropdownSeparator />}
-                {allowEdit && taskApi.taskStatuses.map((s) => (
-                  <DropdownItem key={s} icon={t.status === s ? Check : RefreshCw} onClick={() => changeStatus(t, s)}>
-                    Mark as {s}
-                  </DropdownItem>
-                ))}
-                {allowDelete && <DropdownSeparator />}
-                {allowDelete && <DropdownItem icon={Trash2} danger onClick={() => setConfirm({ open: true, record: t })}>Delete</DropdownItem>}
-              </Dropdown>
-            </div>
-          ),
-        }]
-      : []),
+  const tabs = [
+    { value: 'assigned', label: 'Assigned to Me', count: sections.assigned.length },
+    { value: 'dueToday', label: 'Due Today', count: sections.dueToday.length },
+    { value: 'upcoming', label: 'Upcoming', count: sections.upcoming.length },
+    { value: 'overdue', label: 'Overdue', count: sections.overdue.length },
+    { value: 'completed', label: 'Completed', count: sections.completed.length },
+    { value: 'highPriority', label: 'High Priority', count: sections.highPriority.length },
+    { value: 'blocked', label: 'Blocked', count: sections.blocked.length },
   ]
+
+  const items = sections[section] || []
+
+  async function quickChangeStatus(t, status) {
+    if (t.status === status) return
+    await taskApi.changeStatus(t.id, status, user)
+    toast.success(`"${t.title}" moved to ${status}`)
+    load()
+  }
+
+  if (loading) return <PageLoader />
 
   return (
     <div>
       <PageHeader
         title="My Tasks"
-        subtitle={`${table.total} tasks assigned to you`}
-        actions={allowCreate ? <Button icon={Plus} onClick={openCreate}>New Task</Button> : null}
+        subtitle={`${myTasks.length} task(s) assigned to you`}
+        actions={allowCreate ? <Button icon={Plus} onClick={() => navigate('/tasks/list?new=1')}>New Task</Button> : null}
       />
-      <PageBody>
-        <Card padded={false}>
-          <DataTable
-            columns={columns}
-            data={table.items}
-            loading={table.loading}
-            error={table.error}
-            onRetry={table.refresh}
-            selectable={allowDelete}
-            selected={selected}
-            onSelectedChange={setSelected}
-            sort={table.sort}
-            onSortChange={table.toggleSort}
-            onRowClick={allowEdit ? openEdit : undefined}
-            page={table.page}
-            pageSize={table.pageSize}
-            total={table.total}
-            totalPages={table.totalPages}
-            onPageChange={table.setPage}
-            emptyState={{ title: 'No tasks found', description: 'Create your first task to get started.', action: allowCreate ? { label: 'New Task', icon: Plus, onClick: openCreate } : undefined }}
-            bulkActions={allowDelete ? [{ label: 'Delete', icon: Trash2, onClick: async (ids) => { await Promise.all(ids.map((id) => taskApi.myTasks.remove(id))); toast.success(`${ids.length} task(s) deleted`); setSelected([]); table.refresh() } }] : []}
-            toolbar={
-              <>
-                <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search tasks…" className="w-full max-w-xs" />
-                <Select value={table.filters.status} onChange={(e) => table.setFilters((p) => ({ ...p, status: e.target.value }))} className="w-auto min-w-[130px]">
-                  <option value="all">All Status</option>
-                  {taskApi.taskStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-                </Select>
-                <Select value={table.filters.priority} onChange={(e) => table.setFilters((p) => ({ ...p, priority: e.target.value }))} className="w-auto min-w-[130px]">
-                  <option value="all">All Priority</option>
-                  {taskPriorities.map((p) => <option key={p} value={p}>{p}</option>)}
-                </Select>
-              </>
-            }
-          />
-        </Card>
+      <PageBody className="flex flex-col gap-4">
+        <Tabs tabs={tabs} value={section} onChange={setSection} />
+        {items.length === 0 ? (
+          <Card><EmptyState title="No tasks here" description="Nothing in this view right now." /></Card>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {items.map((t) => (
+              <Card
+                key={t.id}
+                className="flex cursor-pointer flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                onClick={() => navigate(`/tasks/${t.id}`)}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-ink">{t.title}</p>
+                    <Badge color={priorityColor[t.priority] || 'neutral'}>{t.priority}</Badge>
+                    {(t.status === 'Blocked' || !taskApi.isReady(t)) && <Badge color="danger">Blocked by dependency</Badge>}
+                  </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-ink-faint">
+                    {t.project && <span className="flex items-center gap-1"><FolderKanban className="h-3.5 w-3.5" />{getProjectName(t.project)}</span>}
+                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(t.dueDate)}</span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
+                  <StatusBadge status={t.status} />
+                  {allowEdit && (
+                    <Select value={t.status} onChange={(e) => quickChangeStatus(t, e.target.value)} className="w-auto min-w-[140px]">
+                      {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </Select>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </PageBody>
-
-      <Drawer
-        open={drawer.open}
-        onClose={() => setDrawer({ open: false, mode: 'create', record: null })}
-        title={drawer.mode === 'create' ? 'New Task' : 'Edit Task'}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDrawer({ open: false, mode: 'create', record: null })}>Cancel</Button>
-            <Button loading={saving} onClick={handleSubmit(onSubmit)}>{drawer.mode === 'create' ? 'Create Task' : 'Save changes'}</Button>
-          </>
-        }
-      >
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Field label="Title" required error={errors.title?.message}>
-            <Input {...register('title', { required: 'Title is required' })} />
-          </Field>
-          <Field label="Project (optional)">
-            <Select {...register('project')}>
-              <option value="">No project</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Priority">
-              <Select {...register('priority')}>
-                {taskPriorities.map((p) => <option key={p} value={p}>{p}</option>)}
-              </Select>
-            </Field>
-            <Field label="Status">
-              <Select {...register('status')}>
-                {taskApi.taskStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Due Date"><Input type="date" {...register('dueDate')} /></Field>
-            <Field label="Assignee">
-              <Select {...register('assignee')}>
-                {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </Select>
-            </Field>
-          </div>
-        </form>
-      </Drawer>
-
-      <ConfirmDialog
-        open={confirm.open}
-        onClose={() => setConfirm({ open: false, record: null })}
-        onConfirm={confirmDelete}
-        loading={saving}
-        title="Delete this task?"
-        description="This action cannot be undone."
-        confirmLabel="Delete"
-      />
     </div>
   )
 }

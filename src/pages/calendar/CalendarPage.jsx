@@ -19,6 +19,7 @@ const TYPE_COLORS = {
   Milestone: 'brand',
   Interview: 'success',
   Payment: 'danger',
+  Task: 'neutral',
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -257,6 +258,7 @@ function badgeBg(color) {
     brand: 'bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300',
     success: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
     danger: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300',
+    neutral: 'bg-surface-subtle text-ink-muted',
   }
   return map[color] || map.info
 }
@@ -303,6 +305,6 @@ function DayAgendaRow({ date, events, isToday, onClick }) {
 }
 
 function dotColor(color) {
-  const map = { info: 'bg-sky-500', warning: 'bg-amber-500', brand: 'bg-brand-500', success: 'bg-emerald-500', danger: 'bg-red-500' }
+  const map = { info: 'bg-sky-500', warning: 'bg-amber-500', brand: 'bg-brand-500', success: 'bg-emerald-500', danger: 'bg-red-500', neutral: 'bg-ink-faint' }
   return map[color] || map.info
 }

@@ -15,25 +15,34 @@ export const branches = [
   { id: 'BR-03', name: 'Bengaluru Studio', city: 'Bengaluru', manager: 'EMP-003', employees: 5, status: 'active' },
 ]
 
+// Mirrors the five real login roles (Super Admin, Admin, HR, MD, Employee)
+// from src/data/roles.js — kept as its own operational "system users" list
+// (separate from the demo login roster in src/data/authUsers.js) but never
+// using a role label that isn't one of the five.
 export const systemUsers = [
-  { id: 'USR-001', name: 'Arjun Mehta', email: 'arjun.mehta@lax360.com', role: 'Director', status: 'active', lastLogin: '2024-09-19T08:30:00' },
-  { id: 'USR-002', name: 'Priya Nair', email: 'priya.nair@lax360.com', role: 'Architect', status: 'active', lastLogin: '2024-09-19T09:02:00' },
-  { id: 'USR-003', name: 'Ritika Chawla', email: 'ritika.chawla@lax360.com', role: 'Finance Manager', status: 'active', lastLogin: '2024-09-18T17:45:00' },
-  { id: 'USR-004', name: 'Kavya Menon', email: 'kavya.menon@lax360.com', role: 'HR Manager', status: 'active', lastLogin: '2024-09-19T10:15:00' },
-  { id: 'USR-005', name: 'Nikhil Bose', email: 'nikhil.bose@lax360.com', role: 'Sales Manager', status: 'active', lastLogin: '2024-09-18T14:20:00' },
-  { id: 'USR-006', name: 'Farhan Sheikh', email: 'farhan.sheikh@lax360.com', role: 'Procurement Manager', status: 'active', lastLogin: '2024-09-19T07:55:00' },
-  { id: 'USR-007', name: 'Rajesh Khanna', email: 'rajesh.khanna@gmail.com', role: 'Client', status: 'active', lastLogin: '2024-09-17T20:10:00' },
-  { id: 'USR-008', name: 'Aditya Verma', email: 'aditya.verma@lax360.com', role: 'Site Engineer', status: 'inactive', lastLogin: '2024-08-30T11:00:00' },
+  { id: 'USR-001', name: 'Abhinav Saxena', email: 'abhinav.saxena@lax360.com', role: 'Super Admin', status: 'active', lastLogin: '2024-09-19T07:55:00' },
+  { id: 'USR-002', name: 'Simran Kaur', email: 'simran.kaur@lax360.com', role: 'Admin', status: 'active', lastLogin: '2024-09-19T08:10:00' },
+  { id: 'USR-003', name: 'Arjun Mehta', email: 'arjun.mehta@lax360.com', role: 'MD', status: 'active', lastLogin: '2024-09-19T08:30:00' },
+  { id: 'USR-004', name: 'Kavya Menon', email: 'kavya.menon@lax360.com', role: 'HR', status: 'active', lastLogin: '2024-09-19T10:15:00' },
+  { id: 'USR-005', name: 'Priya Nair', email: 'priya.nair@lax360.com', role: 'Employee', status: 'active', lastLogin: '2024-09-19T09:02:00' },
+  { id: 'USR-006', name: 'Ritika Chawla', email: 'ritika.chawla@lax360.com', role: 'Employee', status: 'active', lastLogin: '2024-09-18T17:45:00' },
+  { id: 'USR-007', name: 'Nikhil Bose', email: 'nikhil.bose@lax360.com', role: 'Employee', status: 'active', lastLogin: '2024-09-18T14:20:00' },
+  { id: 'USR-008', name: 'Aditya Verma', email: 'aditya.verma@lax360.com', role: 'Employee', status: 'inactive', lastLogin: '2024-08-30T11:00:00' },
 ]
 
-export const permissionModules = ['Dashboard', 'CRM', 'Sales', 'Projects', 'Design & Drawings', 'Estimation & BOQ', 'Procurement', 'Inventory', 'Finance', 'Billing', 'HR', 'Site Management', 'Reports', 'Administration']
-
-export const rolePermissions = {
-  'Super Admin': permissionModules.reduce((acc, m) => ({ ...acc, [m]: { view: true, create: true, edit: true, delete: true, approve: true } }), {}),
-  'Project Manager': permissionModules.reduce((acc, m) => ({ ...acc, [m]: { view: true, create: ['Projects', 'Design & Drawings', 'Site Management', 'Estimation & BOQ'].includes(m), edit: ['Projects', 'Design & Drawings', 'Site Management'].includes(m), delete: false, approve: ['Projects'].includes(m) } }), {}),
-  'Finance Manager': permissionModules.reduce((acc, m) => ({ ...acc, [m]: { view: true, create: ['Finance', 'Billing'].includes(m), edit: ['Finance', 'Billing'].includes(m), delete: false, approve: ['Finance', 'Billing'].includes(m) } }), {}),
-  'HR Manager': permissionModules.reduce((acc, m) => ({ ...acc, [m]: { view: ['Dashboard', 'HR', 'Reports'].includes(m), create: m === 'HR', edit: m === 'HR', delete: false, approve: m === 'HR' } }), {}),
-  Employee: permissionModules.reduce((acc, m) => ({ ...acc, [m]: { view: ['Dashboard', 'Projects'].includes(m), create: false, edit: false, delete: false, approve: false } }), {}),
+// The permission matrix shown on Administration -> Roles & Permissions is
+// derived live from the five real login roles in src/data/roles.js (via
+// buildRolePermissionMatrix below) rather than a separate hand-maintained
+// copy, so the admin UI can never drift out of sync with what's actually
+// enforced by can()/ProtectedRoute across the app.
+export const permissionModuleLabels = {
+  dashboard: 'Dashboard', crm: 'CRM', sales: 'Sales', projects: 'Projects',
+  design: 'Design & Drawings', estimation: 'Estimation & BOQ', procurement: 'Procurement',
+  inventory: 'Inventory', vendors: 'Vendors', finance: 'Finance', billing: 'Billing',
+  hr: 'HR', payroll: 'Payroll', timesheets: 'Timesheets', site: 'Site Management',
+  tasks: 'Tasks & Collaboration', meetings: 'Meetings', assets: 'Assets', fleet: 'Fleet',
+  helpdesk: 'Helpdesk', reports: 'Reports', calendar: 'Calendar', communication: 'Communication',
+  administration: 'Administration', documents: 'Documents',
 }
 
 export const approvalWorkflows = [

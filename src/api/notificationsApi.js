@@ -1,9 +1,23 @@
-import { mockGet, mockMutate } from './mockClient'
+import { mockGet, mockMutate, nextId } from './mockClient'
 import { notifications, chatChannels, chatMessages } from '../data/notifications'
 
+// Pushes a live notification targeted at one employee — called from task
+// (and other) mutation flows right after the mutation succeeds. Broadcast
+// (seeded) notifications keep forUser: null.
+export function notifyUser(employeeId, { category, title, priority = 'medium', link = '/tasks' }) {
+  notifications.unshift({
+    id: nextId('NOT'),
+    category, title, priority, link,
+    time: new Date().toISOString(),
+    read: false,
+    forUser: employeeId,
+  })
+}
+
 export const notificationsApi = {
-  async list() {
-    return mockGet(notifications)
+  async list(user) {
+    const scoped = notifications.filter((n) => n.forUser == null || n.forUser === user?.employeeId)
+    return mockGet(scoped)
   },
   async markRead(id) {
     return mockMutate(() => {
@@ -12,9 +26,11 @@ export const notificationsApi = {
       return n
     })
   },
-  async markAllRead() {
+  async markAllRead(user) {
     return mockMutate(() => {
-      notifications.forEach((n) => (n.read = true))
+      notifications.forEach((n) => {
+        if (n.forUser == null || n.forUser === user?.employeeId) n.read = true
+      })
       return notifications
     })
   },

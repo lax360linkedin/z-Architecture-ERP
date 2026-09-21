@@ -11,8 +11,16 @@ import { CardSkeleton, TableSkeleton } from '../../components/ui/Skeleton'
 import { hrApi } from '../../api/hrApi'
 import { getEmployeeById } from '../../data/employees'
 import { formatDate } from '../../utils/format'
+import { useAuth } from '../../context/AuthContext'
+import { usePermissions } from '../../context/PermissionContext'
 
 export default function Attendance() {
+  const { user } = useAuth()
+  const { isRole } = usePermissions()
+  // Employee only has hr.viewSelf, so this page becomes a single-row "My
+  // Attendance" view scoped to their own employee record — everyone with
+  // full hr.view (Admin/HR) still sees the company-wide table with filters.
+  const selfOnly = isRole('employee')
   const [loading, setLoading] = useState(true)
   const [records, setRecords] = useState([])
   const [query, setQuery] = useState('')
@@ -20,10 +28,11 @@ export default function Attendance() {
 
   useEffect(() => {
     hrApi.attendanceToday().then((data) => {
-      setRecords(data)
+      setRecords(selfOnly ? data.filter((r) => r.employee === user?.employeeId) : data)
       setLoading(false)
     })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selfOnly])
 
   const present = records.filter((r) => r.status === 'present').length
   const absent = records.filter((r) => r.status === 'absent').length
@@ -43,7 +52,10 @@ export default function Attendance() {
 
   return (
     <div>
-      <PageHeader title="Attendance" subtitle={today ? `Today's attendance — ${formatDate(today)}` : "Today's attendance"} />
+      <PageHeader
+        title={selfOnly ? 'My Attendance' : 'Attendance'}
+        subtitle={today ? `Today's attendance — ${formatDate(today)}` : "Today's attendance"}
+      />
       <PageBody className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {loading ? (
@@ -59,15 +71,17 @@ export default function Attendance() {
         </div>
 
         <Card padded={false}>
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search employees…" className="w-full max-w-xs" />
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto min-w-[140px]">
-              <option value="all">All Status</option>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="on-leave">On Leave</option>
-            </Select>
-          </div>
+          {!selfOnly && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+              <SearchInput value={query} onChange={setQuery} placeholder="Search employees…" className="w-full max-w-xs" />
+              <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto min-w-[140px]">
+                <option value="all">All Status</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="on-leave">On Leave</option>
+              </Select>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>

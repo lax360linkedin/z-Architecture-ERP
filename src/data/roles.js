@@ -1,25 +1,35 @@
 import { DATA_SCOPES } from '../utils/permissions'
 
-// Every role a LAX360 account can hold. `permissions` is a list of
-// "module.action" grants (wildcards allowed) consumed by can()/hasPermission()
-// in PermissionContext. `dataScope` says how much of the record set within an
-// allowed module the role sees (see DATA_SCOPES) — enforced by filtering
-// helpers such as canAccessProject(), not by the permission check itself.
+// LAX360 ships with exactly five login roles. Each role's `permissions` is a
+// list of "module.action" grants (wildcards allowed) consumed by can()/
+// hasPermission() in PermissionContext — never check `user.roleId` directly
+// in a component; always go through can()/isRole() so access stays defined
+// in one place. `dataScope` says how much of an allowed module's records the
+// role sees (see DATA_SCOPES), enforced by scoping helpers like
+// canAccessProject() and the "viewSelf" HR actions below, not by the
+// permission check itself.
+//
+// Two HR actions are distinguished on purpose: `hr.view` is the full HR
+// module (employee directory, departments, recruitment, performance —
+// company-wide), while `hr.viewSelf` is just enough to reach Attendance,
+// Leave and Employee Documents scoped to the signed-in employee's own
+// records. `hr.*` (granted to admin/hr) implies both; Employee is granted
+// only `hr.viewSelf`.
 export const roles = [
   {
     id: 'super_admin',
     label: 'Super Admin',
     level: 100,
     dataScope: DATA_SCOPES.GLOBAL,
-    description: 'Full system access across every module, branch and record.',
+    description: 'Full ERP access — every module, user management, role & permission management, system and company settings, audit logs, all dashboards and reports.',
     permissions: ['*'],
   },
   {
     id: 'admin',
     label: 'Admin',
-    level: 90,
+    level: 80,
     dataScope: DATA_SCOPES.COMPANY,
-    description: 'Business administration — everything except role/permission and system-security configuration.',
+    description: 'Operational access to permitted modules — CRM, customers, projects, sales, procurement, inventory, tasks, reports and employee/user operations — without role/permission management or system-level security settings.',
     permissions: [
       'dashboard.*', 'crm.*', 'sales.*', 'projects.*', 'design.*', 'estimation.*',
       'procurement.*', 'inventory.*', 'vendors.*', 'billing.*', 'finance.view',
@@ -29,123 +39,26 @@ export const roles = [
     ],
   },
   {
-    id: 'director',
-    label: 'Director',
-    level: 85,
+    id: 'hr',
+    label: 'HR',
+    level: 60,
     dataScope: DATA_SCOPES.COMPANY,
-    description: 'Executive visibility across the company with high-value approval rights.',
+    description: 'HR dashboard, employees, attendance, leave, payroll, recruitment, performance, employee documents and HR reports — no finance, system administration or unrelated modules.',
+    permissions: [
+      'dashboard.view', 'hr.*', 'payroll.*', 'reports.view', 'communication.*', 'calendar.view',
+    ],
+  },
+  {
+    id: 'md',
+    label: 'MD',
+    level: 90,
+    dataScope: DATA_SCOPES.COMPANY,
+    description: 'Executive/company dashboard — CRM and customers, sales, projects, finance overview, revenue, expenses, profitability, business reports, approvals and company-level insights.',
     permissions: [
       'dashboard.view', 'crm.view', 'sales.view', 'projects.view', 'projects.approve',
       'design.view', 'estimation.view', 'finance.view', 'finance.approve', 'billing.view',
-      'hr.view', 'reports.view', 'reports.export', 'tasks.view', 'meetings.*',
-      'calendar.view', 'communication.*', 'documents.view',
-    ],
-  },
-  {
-    id: 'project_manager',
-    label: 'Project Manager',
-    level: 60,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Full control of assigned projects — planning, design, site, tasks and budgets.',
-    permissions: [
-      'dashboard.view', 'projects.*', 'estimation.*', 'design.*', 'site.*',
-      'tasks.*', 'timesheets.*', 'meetings.*', 'documents.*', 'calendar.*',
-      'communication.*', 'reports.view',
-    ],
-  },
-  {
-    id: 'architect',
-    label: 'Architect',
-    level: 40,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Design ownership on assigned projects — drawings, revisions and client approvals.',
-    permissions: [
-      'dashboard.view', 'projects.view', 'design.*', 'documents.*',
-      'tasks.view', 'tasks.edit', 'meetings.*', 'communication.*', 'calendar.view',
-    ],
-  },
-  {
-    id: 'interior_designer',
-    label: 'Interior Designer',
-    level: 40,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Interior design, drawings and client feedback on assigned projects.',
-    permissions: [
-      'dashboard.view', 'projects.view', 'design.*', 'documents.*',
-      'tasks.view', 'tasks.edit', 'communication.*', 'calendar.view',
-    ],
-  },
-  {
-    id: 'engineer',
-    label: 'Engineer',
-    level: 40,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Engineering coordination — BOQ, drawings, site inspections on assigned projects.',
-    permissions: [
-      'dashboard.view', 'projects.view', 'design.view', 'estimation.view',
-      'site.*', 'tasks.view', 'tasks.edit', 'documents.view',
-    ],
-  },
-  {
-    id: 'site_engineer',
-    label: 'Site Engineer',
-    level: 35,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Site execution — visits, daily reports, progress, issues and inspections.',
-    permissions: [
-      'dashboard.view', 'projects.view', 'site.*', 'tasks.view', 'tasks.edit', 'documents.view',
-    ],
-  },
-  {
-    id: 'draftsman',
-    label: 'Draftsman',
-    level: 30,
-    dataScope: DATA_SCOPES.ASSIGNED,
-    description: 'Drawing production and revisions on assigned projects.',
-    permissions: [
-      'dashboard.view', 'projects.view', 'design.view', 'design.upload', 'design.edit',
-      'documents.*', 'tasks.view',
-    ],
-  },
-  {
-    id: 'finance_manager',
-    label: 'Finance Manager',
-    level: 65,
-    dataScope: DATA_SCOPES.COMPANY,
-    description: 'Company-wide finance, billing, receivables/payables and financial reporting.',
-    permissions: [
-      'dashboard.view', 'finance.*', 'billing.*', 'payroll.view', 'reports.view',
-      'reports.export', 'projects.view',
-    ],
-  },
-  {
-    id: 'hr_manager',
-    label: 'HR Manager',
-    level: 65,
-    dataScope: DATA_SCOPES.COMPANY,
-    description: 'Employees, attendance, leave, payroll, recruitment and performance.',
-    permissions: [
-      'dashboard.view', 'hr.*', 'payroll.*', 'reports.view',
-    ],
-  },
-  {
-    id: 'procurement_manager',
-    label: 'Procurement Manager',
-    level: 55,
-    dataScope: DATA_SCOPES.COMPANY,
-    description: 'Vendors, purchase requests, RFQs, purchase orders and goods receipt.',
-    permissions: [
-      'dashboard.view', 'vendors.*', 'procurement.*', 'inventory.view', 'reports.view',
-    ],
-  },
-  {
-    id: 'sales_manager',
-    label: 'Sales Manager',
-    level: 55,
-    dataScope: DATA_SCOPES.TEAM,
-    description: 'CRM, leads, opportunities, quotations and sales analytics.',
-    permissions: [
-      'dashboard.view', 'crm.*', 'sales.*', 'reports.view',
+      'hr.view', 'reports.view', 'reports.export', 'tasks.view', 'tasks.approve', 'tasks.export',
+      'meetings.*', 'calendar.view', 'communication.*', 'documents.view',
     ],
   },
   {
@@ -153,19 +66,18 @@ export const roles = [
     label: 'Employee',
     level: 10,
     dataScope: DATA_SCOPES.OWN,
-    description: 'Personal work area — own tasks, timesheets, meetings and documents.',
+    description: 'Personal dashboard — my profile, my tasks, my assigned projects, my attendance, my leave, my timesheets, my documents and communication. Only records and actions assigned to this employee.',
     permissions: [
-      'dashboard.view', 'tasks.view', 'tasks.edit', 'timesheets.*', 'meetings.view',
-      'communication.*', 'documents.view', 'calendar.view',
+      // Deliberately NOT a `tasks.*` wildcard: an Employee can view, update
+      // progress/status, comment, and upload attachments on tasks they can
+      // already reach (canAccessTask), and mark their own work complete —
+      // but cannot create, delete, assign/reassign others' tasks, approve,
+      // or manage dependencies. See utils/permissions.canAccessTask for the
+      // record-level (assigned/created/reviewing) scoping.
+      'dashboard.view', 'projects.view', 'tasks.view', 'tasks.edit', 'tasks.comment',
+      'tasks.upload', 'tasks.complete', 'timesheets.*', 'hr.viewSelf',
+      'meetings.view', 'communication.*', 'documents.view', 'calendar.view',
     ],
-  },
-  {
-    id: 'client',
-    label: 'Client',
-    level: 5,
-    dataScope: DATA_SCOPES.OWN,
-    description: 'Client Portal only — own projects, drawings, documents, invoices and support.',
-    permissions: ['clientPortal.*'],
   },
 ]
 

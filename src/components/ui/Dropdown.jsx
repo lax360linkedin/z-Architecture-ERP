@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState, cloneElement } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, cloneElement } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { classNames } from '../../utils/format'
 
+// Minimum gap kept between the menu and every viewport edge.
+const EDGE_MARGIN = 8
+
 export function Dropdown({ trigger, children, align = 'right', width = 'w-56' }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
+  // null until the menu has an on-screen position to render at, so it never
+  // flashes at an unclamped (potentially off-screen) spot before measurement.
+  const [pos, setPos] = useState(null)
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
 
@@ -25,14 +30,49 @@ export function Dropdown({ trigger, children, align = 'right', width = 'w-56' })
     }
   }, [])
 
+  // Runs synchronously after the menu mounts (and on every resize/scroll
+  // while open) so we can measure its real, rendered size and clamp it
+  // fully inside the viewport — flipping above the trigger when there's
+  // more room there, and sliding left/right off the preferred alignment
+  // when the trigger sits near an edge. useLayoutEffect fires before the
+  // browser paints, so the corrected position is the only one ever seen.
+  useLayoutEffect(() => {
+    if (!open) return
+    function reposition() {
+      const triggerRect = triggerRef.current?.getBoundingClientRect()
+      const menuEl = menuRef.current
+      if (!triggerRect || !menuEl) return
+      const menuRect = menuEl.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+
+      let left = align === 'right' ? triggerRect.right - menuRect.width : triggerRect.left
+      left = Math.min(left, vw - menuRect.width - EDGE_MARGIN)
+      left = Math.max(left, EDGE_MARGIN)
+
+      const spaceBelow = vh - triggerRect.bottom
+      const spaceAbove = triggerRect.top
+      const fitsBelow = menuRect.height + EDGE_MARGIN <= spaceBelow
+      let top = !fitsBelow && spaceAbove > spaceBelow ? triggerRect.top - menuRect.height - 6 : triggerRect.bottom + 6
+      top = Math.min(top, vh - menuRect.height - EDGE_MARGIN)
+      top = Math.max(top, EDGE_MARGIN)
+
+      setPos({ top, left })
+    }
+    reposition()
+    window.addEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+    }
+  }, [open, align])
+
   const openMenu = () => {
     const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect) {
-      setPos({
-        top: rect.bottom + 6,
-        left: align === 'right' ? rect.right : rect.left,
-      })
-    }
+    // Provisional position so the menu has somewhere to mount for the very
+    // first measurement pass — corrected in place before paint, above.
+    if (rect) setPos({ top: rect.bottom + 6, left: align === 'right' ? Math.max(rect.right - 280, EDGE_MARGIN) : rect.left })
     setOpen((o) => !o)
   }
 
@@ -41,15 +81,15 @@ export function Dropdown({ trigger, children, align = 'right', width = 'w-56' })
       {cloneElement(trigger, { ref: triggerRef, onClick: openMenu })}
       {createPortal(
         <AnimatePresence>
-          {open && (
+          {open && pos && (
             <motion.div
               ref={menuRef}
               initial={{ opacity: 0, y: -4, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.12 }}
-              style={{ position: 'fixed', top: pos.top, left: align === 'right' ? pos.left : pos.left, transform: align === 'right' ? 'translateX(-100%)' : 'none' }}
-              className={classNames('z-50 rounded-xl border border-border bg-surface-raised p-1.5 shadow-popover', width)}
+              style={{ position: 'fixed', top: pos.top, left: pos.left, maxHeight: `calc(100vh - ${EDGE_MARGIN * 2}px)`, maxWidth: `calc(100vw - ${EDGE_MARGIN * 2}px)` }}
+              className={classNames('z-50 overflow-y-auto rounded-xl border border-border bg-surface-raised p-1.5 shadow-popover', width)}
             >
               {typeof children === 'function' ? children({ close: () => setOpen(false) }) : children}
             </motion.div>

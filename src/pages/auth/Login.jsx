@@ -63,7 +63,7 @@ export default function Login() {
       <div className="mt-7">
         <div className="mb-2 flex items-center gap-1.5">
           <FlaskConical className="h-3 w-3 text-amber-500" />
-          <p className="text-xs font-medium text-ink-faint">Quick demo sign-in — Development / Demo Mode, all 15 roles</p>
+          <p className="text-xs font-medium text-ink-faint">Quick demo sign-in — Development / Demo Mode</p>
         </div>
         <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-1">
           {allAuthUsers.map((u) => (

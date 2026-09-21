@@ -36,6 +36,22 @@ export const navConfig = [
       { label: 'Project Analytics', path: '/projects/analytics' },
     ],
   },
+  // Task Management is a first-class ERP module — deliberately its own
+  // top-level entry (not nested under Projects), positioned right after
+  // Projects to mirror the core workflow (Project -> Milestone -> Task ->
+  // Design/Drawing -> BOQ -> ...), and deeply cross-linked to Projects/
+  // Milestones/Design/Procurement/Site/Timesheets/Finance.
+  {
+    label: 'Tasks', icon: ListChecks, module: 'tasks', children: [
+      { label: 'Task Dashboard', path: '/tasks' },
+      { label: 'All Tasks', path: '/tasks/list' },
+      { label: 'My Tasks', path: '/tasks/my-tasks' },
+      { label: 'Kanban Board', path: '/tasks/kanban' },
+      { label: 'Task Calendar', path: '/tasks/calendar' },
+      { label: 'Task Reports', path: '/tasks/reports' },
+      { label: 'Activity', path: '/tasks/activity' },
+    ],
+  },
   {
     label: 'Design & Drawings', icon: PenTool, module: 'design', children: [
       { label: 'Design Management', path: '/design/management' },
@@ -101,15 +117,19 @@ export const navConfig = [
     ],
   },
   {
-    label: 'HR', icon: UsersRound, module: 'hr', children: [
-      { label: 'Employees', path: '/hr/employees' },
-      { label: 'Departments', path: '/hr/departments' },
-      { label: 'Attendance', path: '/hr/attendance' },
-      { label: 'Leave', path: '/hr/leave' },
+    // No `module` on the group itself — visibility is derived from whether
+    // any child is visible (see Sidebar.useVisibleNav), since Employee only
+    // has `hr.viewSelf` (Attendance/Leave/Documents) while Admin/HR have the
+    // full `hr.*` module (every child, including the employee directory).
+    label: 'HR', icon: UsersRound, children: [
+      { label: 'Employees', path: '/hr/employees', module: 'hr', action: 'view' },
+      { label: 'Departments', path: '/hr/departments', module: 'hr', action: 'view' },
+      { label: 'Attendance', path: '/hr/attendance', module: 'hr', action: 'viewSelf' },
+      { label: 'Leave', path: '/hr/leave', module: 'hr', action: 'viewSelf' },
       { label: 'Payroll', path: '/hr/payroll', module: 'payroll' },
-      { label: 'Recruitment', path: '/hr/recruitment' },
-      { label: 'Performance', path: '/hr/performance' },
-      { label: 'Employee Documents', path: '/hr/documents' },
+      { label: 'Recruitment', path: '/hr/recruitment', module: 'hr', action: 'view' },
+      { label: 'Performance', path: '/hr/performance', module: 'hr', action: 'view' },
+      { label: 'Employee Documents', path: '/hr/documents', module: 'hr', action: 'viewSelf' },
     ],
   },
   { label: 'Timesheets', icon: Clock, path: '/timesheets', module: 'timesheets' },
@@ -121,14 +141,6 @@ export const navConfig = [
       { label: 'Progress', path: '/site-management/progress' },
       { label: 'Issues', path: '/site-management/issues' },
       { label: 'Inspections', path: '/site-management/inspections' },
-    ],
-  },
-  {
-    label: 'Tasks & Collaboration', icon: ListChecks, module: 'tasks', children: [
-      { label: 'My Tasks', path: '/tasks/my-tasks' },
-      { label: 'Team Tasks', path: '/tasks/team-tasks' },
-      { label: 'Kanban', path: '/tasks/kanban' },
-      { label: 'Activity', path: '/tasks/activity' },
     ],
   },
   { label: 'Meetings', icon: Video, path: '/meetings', module: 'meetings' },
@@ -164,6 +176,7 @@ export const navConfig = [
       { label: 'Users', path: '/administration/users' },
       { label: 'Roles & Permissions', path: '/administration/roles' },
       { label: 'Approval Workflows', path: '/administration/workflows' },
+      { label: 'Task Types', path: '/administration/task-types' },
       { label: 'Tax Settings', path: '/administration/tax-settings' },
       { label: 'Numbering', path: '/administration/numbering' },
       { label: 'Audit Logs', path: '/administration/audit-logs' },

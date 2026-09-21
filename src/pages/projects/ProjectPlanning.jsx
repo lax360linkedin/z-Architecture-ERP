@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -10,19 +10,34 @@ import { Select, Field, Input } from '../../components/ui/Input'
 import { Drawer } from '../../components/ui/Drawer'
 import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { taskApi } from '../../api/collaborationApi'
+import { taskApi } from '../../api/taskApi'
 import { projects, getProjectName } from '../../data/projects'
-import { wbsTasks, taskPriorities } from '../../data/tasks'
+import { TASK_STATUSES, TASK_PRIORITIES, TASK_TYPES } from '../../data/tasks'
 import { getEmployeeName, employees } from '../../data/employees'
+import { useAuth } from '../../context/AuthContext'
 import { formatDate } from '../../utils/format'
 
 export default function ProjectPlanning() {
   const navigate = useNavigate()
-  const [tasksVersion, setTasksVersion] = useState(0)
+  const { user } = useAuth()
+  const [tasks, setTasks] = useState([])
+  const [loading, setLoading] = useState(true)
   const [groupBy, setGroupBy] = useState('project')
   const [drawer, setDrawer] = useState(false)
   const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  async function load() {
+    setLoading(true)
+    const data = await taskApi.allForUser(user)
+    setTasks(data)
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   const activeProjects = useMemo(() => projects.filter((p) => p.status === 'in-progress'), [])
 
@@ -34,36 +49,36 @@ export default function ProjectPlanning() {
     const elapsed = Math.min(Math.max(today - start, 0), total)
     const pct = total > 0 ? (elapsed / total) * 100 : 0
     return { ...p, ganttPct: Math.min(100, Math.max(0, pct)) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [activeProjects])
 
   const tasksByProject = useMemo(() => {
     const map = {}
-    wbsTasks.forEach((t) => {
+    tasks.forEach((t) => {
+      if (!t.project) return
       map[t.project] = map[t.project] || []
       map[t.project].push(t)
     })
     return map
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasksVersion])
+  }, [tasks])
 
   async function onSubmit(values) {
     setSaving(true)
     try {
-      await taskApi.teamTasks.create({
+      await taskApi.create({
         project: values.project,
-        name: values.name,
-        phase: values.phase || 'Planning',
-        assignee: values.assignee,
+        title: values.title,
+        type: values.type || 'General Task',
+        assignedTo: values.assignedTo,
         priority: values.priority,
         status: values.status,
         startDate: values.startDate,
         dueDate: values.dueDate,
-        dependsOn: null,
-      })
+      }, user)
       toast.success('Task created')
       setDrawer(false)
       reset()
-      setTasksVersion((v) => v + 1)
+      load()
     } catch (err) {
       toast.error(err.message || 'Something went wrong')
     } finally {
@@ -76,7 +91,7 @@ export default function ProjectPlanning() {
       <PageHeader
         title="Project Planning"
         subtitle={`${activeProjects.length} active projects in planning`}
-        actions={<Button icon={Plus} onClick={() => { reset({ project: activeProjects[0]?.id, priority: 'medium', status: 'To Do', assignee: 'EMP-004' }); setDrawer(true) }}>Create Task</Button>}
+        actions={<Button icon={Plus} onClick={() => { reset({ project: activeProjects[0]?.id, type: TASK_TYPES[0], priority: 'Medium', status: 'Not Started', assignedTo: employees[0]?.id }); setDrawer(true) }}>Create Task</Button>}
       />
       <PageBody className="flex flex-col gap-5">
         <Card padded={false}>
@@ -111,7 +126,9 @@ export default function ProjectPlanning() {
             }
           />
           <div className="flex flex-col divide-y divide-border-subtle">
-            {wbsTasks.length === 0 ? (
+            {loading ? (
+              <div className="p-5"><EmptyState title="Loading tasks…" /></div>
+            ) : tasks.length === 0 ? (
               <div className="p-5"><EmptyState title="No tasks planned" /></div>
             ) : groupBy === 'project' ? (
               Object.entries(tasksByProject).map(([projectId, list]) => (
@@ -119,14 +136,14 @@ export default function ProjectPlanning() {
                   <p className="mb-2 text-sm font-semibold text-ink">{getProjectName(projectId)}</p>
                   <div className="flex flex-col gap-2">
                     {list.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2 text-sm">
+                      <div key={t.id} className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2 text-sm cursor-pointer hover:bg-surface-subtle" onClick={() => navigate(`/tasks/${t.id}`)}>
                         <div>
-                          <p className="text-ink">{t.name}</p>
-                          <p className="text-xs text-ink-faint">{t.phase} · {getEmployeeName(t.assignee)} · Due {formatDate(t.dueDate)}</p>
+                          <p className="text-ink">{t.title}</p>
+                          <p className="text-xs text-ink-faint">{t.type} · {getEmployeeName(t.assignedTo)} · Due {formatDate(t.dueDate)}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <StatusBadge status={t.priority} />
-                          <Badge>{t.status}</Badge>
+                          <Badge>{t.priority}</Badge>
+                          <StatusBadge status={t.status} />
                         </div>
                       </div>
                     ))}
@@ -134,20 +151,20 @@ export default function ProjectPlanning() {
                 </div>
               ))
             ) : (
-              ['To Do', 'In Progress', 'In Review', 'Done'].map((status) => {
-                const list = wbsTasks.filter((t) => t.status === status)
+              TASK_STATUSES.map((status) => {
+                const list = tasks.filter((t) => t.status === status)
                 if (list.length === 0) return null
                 return (
                   <div key={status} className="p-5">
                     <p className="mb-2 text-sm font-semibold text-ink">{status} ({list.length})</p>
                     <div className="flex flex-col gap-2">
                       {list.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2 text-sm">
+                        <div key={t.id} className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2 text-sm cursor-pointer hover:bg-surface-subtle" onClick={() => navigate(`/tasks/${t.id}`)}>
                           <div>
-                            <p className="text-ink">{t.name}</p>
-                            <p className="text-xs text-ink-faint">{getProjectName(t.project)} · {getEmployeeName(t.assignee)} · Due {formatDate(t.dueDate)}</p>
+                            <p className="text-ink">{t.title}</p>
+                            <p className="text-xs text-ink-faint">{t.project ? getProjectName(t.project) : 'General'} · {getEmployeeName(t.assignedTo)} · Due {formatDate(t.dueDate)}</p>
                           </div>
-                          <StatusBadge status={t.priority} />
+                          <Badge>{t.priority}</Badge>
                         </div>
                       ))}
                     </div>
@@ -166,21 +183,23 @@ export default function ProjectPlanning() {
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           </Field>
-          <Field label="Task Name" required error={errors.name?.message}>
-            <Input {...register('name', { required: 'Task name is required' })} />
+          <Field label="Task Title" required error={errors.title?.message}>
+            <Input {...register('title', { required: 'Task title is required' })} />
           </Field>
-          <Field label="Phase">
-            <Input {...register('phase')} placeholder="e.g. Design, Structure, Finishing" />
+          <Field label="Type">
+            <Select {...register('type')}>
+              {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Assignee">
-              <Select {...register('assignee')}>
+              <Select {...register('assignedTo')}>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </Select>
             </Field>
             <Field label="Priority">
               <Select {...register('priority')}>
-                {taskPriorities.map((p) => <option key={p} value={p}>{p}</option>)}
+                {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </Select>
             </Field>
           </div>
@@ -190,7 +209,7 @@ export default function ProjectPlanning() {
           </div>
           <Field label="Status">
             <Select {...register('status')}>
-              {['To Do', 'In Progress', 'In Review', 'Done'].map((s) => <option key={s} value={s}>{s}</option>)}
+              {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </Select>
           </Field>
         </form>

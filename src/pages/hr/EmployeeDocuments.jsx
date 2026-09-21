@@ -12,17 +12,26 @@ import { documents, documentFolders } from '../../data/designs'
 import { getEmployeeName } from '../../data/employees'
 import { formatDate } from '../../utils/format'
 import { usePermissions } from '../../context/PermissionContext'
+import { useAuth } from '../../context/AuthContext'
 
 export default function EmployeeDocuments() {
-  const { can } = usePermissions()
+  const { user } = useAuth()
+  const { can, isRole } = usePermissions()
   const allowUpload = can('hr', 'edit')
+  // Employee only has hr.viewSelf — scope to documents they uploaded
+  // themselves ("My Documents") rather than every HR/admin file on record.
+  const selfOnly = isRole('employee')
   const [drawer, setDrawer] = useState(false)
   const [name, setName] = useState('')
   const [folder, setFolder] = useState(documentFolders[0])
 
   const hrDocs = useMemo(
-    () => documents.filter((d) => d.department === 'Human Resources' || d.department === 'Administration'),
-    []
+    () =>
+      documents.filter((d) => {
+        if (selfOnly) return d.uploadedBy === user?.employeeId
+        return d.department === 'Human Resources' || d.department === 'Administration'
+      }),
+    [selfOnly, user]
   )
 
   function handleUpload() {
@@ -34,8 +43,8 @@ export default function EmployeeDocuments() {
   return (
     <div>
       <PageHeader
-        title="Employee Documents"
-        subtitle={`${hrDocs.length} HR & administrative document${hrDocs.length !== 1 ? 's' : ''} on file`}
+        title={selfOnly ? 'My Documents' : 'Employee Documents'}
+        subtitle={selfOnly ? `${hrDocs.length} document${hrDocs.length !== 1 ? 's' : ''} on file` : `${hrDocs.length} HR & administrative document${hrDocs.length !== 1 ? 's' : ''} on file`}
         actions={allowUpload ? <Button icon={Plus} onClick={() => setDrawer(true)}>Upload Document</Button> : null}
       />
       <PageBody>

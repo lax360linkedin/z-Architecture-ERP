@@ -126,9 +126,13 @@ const SiteIssues = () => lazyPage(() => import('./pages/site/SiteIssues'))
 const Inspections = () => lazyPage(() => import('./pages/site/Inspections'))
 
 // Tasks & Collaboration
+const TaskDashboard = () => lazyPage(() => import('./pages/tasks/TaskDashboard'))
+const TaskList = () => lazyPage(() => import('./pages/tasks/TaskList'))
+const TaskDetail = () => lazyPage(() => import('./pages/tasks/TaskDetail'))
 const MyTasks = () => lazyPage(() => import('./pages/tasks/MyTasks'))
-const TeamTasks = () => lazyPage(() => import('./pages/tasks/TeamTasks'))
 const Kanban = () => lazyPage(() => import('./pages/tasks/Kanban'))
+const TaskCalendar = () => lazyPage(() => import('./pages/tasks/TaskCalendar'))
+const TaskReports = () => lazyPage(() => import('./pages/tasks/TaskReports'))
 const Activity = () => lazyPage(() => import('./pages/tasks/Activity'))
 
 // Meetings / Assets / Fleet / Helpdesk
@@ -155,6 +159,7 @@ const AdminBranches = () => lazyPage(() => import('./pages/administration/Branch
 const AdminUsers = () => lazyPage(() => import('./pages/administration/AdminUsers'))
 const AdminRoles = () => lazyPage(() => import('./pages/administration/Roles'))
 const AdminWorkflows = () => lazyPage(() => import('./pages/administration/Workflows'))
+const AdminTaskTypes = () => lazyPage(() => import('./pages/administration/TaskTypes'))
 const AdminTaxSettings = () => lazyPage(() => import('./pages/administration/TaxSettings'))
 const AdminNumbering = () => lazyPage(() => import('./pages/administration/Numbering'))
 const AdminAuditLogs = () => lazyPage(() => import('./pages/administration/AuditLogs'))
@@ -268,10 +273,14 @@ export default function App() {
         <Route path="/site-management/issues" element={<SiteIssues />} />
         <Route path="/site-management/inspections" element={<Inspections />} />
 
+        <Route path="/tasks" element={<TaskDashboard />} />
+        <Route path="/tasks/list" element={<TaskList />} />
         <Route path="/tasks/my-tasks" element={<MyTasks />} />
-        <Route path="/tasks/team-tasks" element={<TeamTasks />} />
         <Route path="/tasks/kanban" element={<Kanban />} />
+        <Route path="/tasks/calendar" element={<TaskCalendar />} />
+        <Route path="/tasks/reports" element={<TaskReports />} />
         <Route path="/tasks/activity" element={<Activity />} />
+        <Route path="/tasks/:id" element={<TaskDetail />} />
 
         <Route path="/meetings" element={<Meetings />} />
 
@@ -298,6 +307,7 @@ export default function App() {
         <Route path="/administration/users" element={<AdminUsers />} />
         <Route path="/administration/roles" element={<AdminRoles />} />
         <Route path="/administration/workflows" element={<AdminWorkflows />} />
+        <Route path="/administration/task-types" element={<AdminTaskTypes />} />
         <Route path="/administration/tax-settings" element={<AdminTaxSettings />} />
         <Route path="/administration/numbering" element={<AdminNumbering />} />
         <Route path="/administration/audit-logs" element={<AdminAuditLogs />} />

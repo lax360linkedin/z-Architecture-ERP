@@ -1,10 +1,10 @@
 import { createContext, useContext, useMemo } from 'react'
 import { useAuth } from './AuthContext'
-import { can as canCheck, permissionForRoute, canAccessProject, DATA_SCOPES } from '../utils/permissions'
+import { can as canCheck, permissionForRoute, canAccessProject, canAccessTask, DATA_SCOPES } from '../utils/permissions'
 
 const PermissionContext = createContext(null)
 
-export { canAccessProject }
+export { canAccessProject, canAccessTask }
 
 export function PermissionProvider({ children }) {
   const { user } = useAuth()
@@ -24,6 +24,7 @@ export function PermissionProvider({ children }) {
       can,
       canRoute,
       canAccessProject: (project) => canAccessProject(user, project),
+      canAccessTask: (taskRecord) => canAccessTask(user, taskRecord),
       isRole: (roleId) => user?.roleId === roleId,
       isAtLeast: (level) => (user?.roleLevel ?? 0) >= level,
     }

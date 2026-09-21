@@ -16,7 +16,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { useDataTable } from '../../hooks/useDataTable'
 import { hrApi } from '../../api/hrApi'
 import { employees, getEmployeeName } from '../../data/employees'
-import { DEPARTMENTS, ROLES } from '../../utils/constants'
+import { DEPARTMENTS, JOB_DESIGNATIONS } from '../../utils/constants'
 import { formatDate } from '../../utils/format'
 import { usePermissions } from '../../context/PermissionContext'
 
@@ -34,7 +34,7 @@ export default function Employees() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
   function openCreate() {
-    reset({ department: DEPARTMENTS[0], role: ROLES[ROLES.length - 1], status: 'active', joiningDate: new Date().toISOString().slice(0, 10) })
+    reset({ department: DEPARTMENTS[0], role: 'Architect', status: 'active', joiningDate: new Date().toISOString().slice(0, 10) })
     setDrawer({ open: true, mode: 'create', record: null })
   }
   function openEdit(record) {
@@ -176,7 +176,7 @@ export default function Employees() {
             </Field>
             <Field label="Role">
               <Select {...register('role')}>
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                {JOB_DESIGNATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
               </Select>
             </Field>
           </div>

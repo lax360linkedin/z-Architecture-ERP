@@ -13,8 +13,12 @@ import { Dropdown, DropdownItem } from '../../components/ui/Dropdown'
 import { Badge, StatusBadge } from '../../components/ui/Badge'
 import { useDataTable } from '../../hooks/useDataTable'
 import { adminApi } from '../../api/adminApi'
-import { ROLES } from '../../utils/constants'
+import { roles } from '../../data/roles'
 import { formatDate } from '../../utils/format'
+
+// System-user accounts are constrained to the five real login roles (not
+// the broader job-designation list used for employee records elsewhere).
+const LOGIN_ROLE_LABELS = roles.map((r) => r.label)
 import { usePermissions } from '../../context/PermissionContext'
 import { useAuth } from '../../context/AuthContext'
 import { logAudit } from '../../api/auditLogApi'
@@ -148,7 +152,7 @@ export default function AdminUsers() {
                 <SearchInput value={table.query} onChange={table.setQuery} placeholder="Search users…" className="w-full max-w-xs" />
                 <Select value={table.filters.role} onChange={(e) => table.setFilters((p) => ({ ...p, role: e.target.value }))} className="w-auto min-w-[150px]">
                   <option value="all">All Roles</option>
-                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {LOGIN_ROLE_LABELS.map((r) => <option key={r} value={r}>{r}</option>)}
                 </Select>
                 <Select value={table.filters.status} onChange={(e) => table.setFilters((p) => ({ ...p, status: e.target.value }))} className="w-auto min-w-[130px]">
                   <option value="all">All Status</option>
@@ -181,7 +185,7 @@ export default function AdminUsers() {
           </Field>
           <Field label="Role" required error={errors.role?.message}>
             <Select {...register('role', { required: true })}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              {LOGIN_ROLE_LABELS.map((r) => <option key={r} value={r}>{r}</option>)}
             </Select>
           </Field>
           <Field label="Status" required error={errors.status?.message}>

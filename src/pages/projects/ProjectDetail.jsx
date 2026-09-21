@@ -17,6 +17,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { ProgressBar } from '../../components/ui/ProgressBar'
 import { projectApi } from '../../api/projectApi'
 import { boqApi } from '../../api/boqApi'
+import { taskApi } from '../../api/taskApi'
 import { useAuth } from '../../context/AuthContext'
 import { usePermissions } from '../../context/PermissionContext'
 import { getCustomerName } from '../../data/customers'
@@ -250,7 +251,7 @@ export default function ProjectDetail() {
                   <thead>
                     <tr className="border-b border-border text-xs text-ink-muted">
                       <th className="px-5 py-2.5 font-medium">Task</th>
-                      <th className="px-5 py-2.5 font-medium">Phase</th>
+                      <th className="px-5 py-2.5 font-medium">Type</th>
                       <th className="px-5 py-2.5 font-medium">Assignee</th>
                       <th className="px-5 py-2.5 font-medium">Priority</th>
                       <th className="px-5 py-2.5 font-medium">Due Date</th>
@@ -259,10 +260,17 @@ export default function ProjectDetail() {
                   </thead>
                   <tbody>
                     {tasks.map((t) => (
-                      <tr key={t.id} className="border-b border-border-subtle last:border-0">
-                        <td className="px-5 py-3 font-medium text-ink">{t.name}</td>
-                        <td className="px-5 py-3 text-ink-muted">{t.phase}</td>
-                        <td className="px-5 py-3 text-ink-muted">{getEmployeeName(t.assignee)}</td>
+                      <tr key={t.id} className="cursor-pointer border-b border-border-subtle last:border-0 hover:bg-surface-subtle" onClick={() => navigate(`/tasks/${t.id}`)}>
+                        <td className="px-5 py-3">
+                          <p className="font-medium text-ink">{t.title}</p>
+                          {!taskApi.isReady(t) && (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">
+                              Blocked by dependency
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-ink-muted">{t.type}</td>
+                        <td className="px-5 py-3 text-ink-muted">{getEmployeeName(t.assignedTo)}</td>
                         <td className="px-5 py-3"><StatusBadge status={t.priority} /></td>
                         <td className="px-5 py-3 text-ink-muted">{formatDate(t.dueDate)}</td>
                         <td className="px-5 py-3"><Badge>{t.status}</Badge></td>

@@ -6,24 +6,27 @@ import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/EmptyState'
 import { classNames, formatRelativeTime } from '../../utils/format'
 import { notificationsApi } from '../../api/notificationsApi'
+import { useAuth } from '../../context/AuthContext'
 
 export function NotificationCenter() {
+  const { user } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
   useEffect(() => {
-    notificationsApi.list().then((list) => {
+    notificationsApi.list(user).then((list) => {
       setItems(list)
       setLoading(false)
     })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   const unread = items.filter((n) => !n.read).length
 
   async function markAllRead() {
-    const updated = await notificationsApi.markAllRead()
-    setItems(updated)
+    const updated = await notificationsApi.markAllRead(user)
+    setItems(updated.filter((n) => n.forUser == null || n.forUser === user?.employeeId))
   }
 
   async function openNotification(n) {

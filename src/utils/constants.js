@@ -46,22 +46,26 @@ export const INDIAN_STATES = [
   'Gujarat', 'West Bengal', 'Rajasthan', 'Uttar Pradesh', 'Kerala',
 ]
 
-export const ROLES = [
-  'Super Admin',
-  'Director',
-  'Admin',
-  'Finance Manager',
-  'HR Manager',
+// Professional job titles/designations an employee record can carry — NOT
+// login/RBAC roles (those are the five in src/data/roles.js: Super Admin,
+// Admin, HR, MD, Employee). An employee's designation and their login role
+// are independent: an Architect can be assigned the "Employee" login role.
+export const JOB_DESIGNATIONS = [
+  'Managing Director',
+  'Principal Architect',
   'Project Manager',
   'Architect',
   'Interior Designer',
-  'Engineer',
+  'Structural Engineer',
+  'MEP Engineer',
   'Site Engineer',
   'Draftsman',
   'Procurement Manager',
+  'Finance Manager',
+  'HR Manager',
   'Sales Manager',
-  'Employee',
-  'Client',
+  'Admin Executive',
+  'IT Administrator',
 ]
 
 export const DEPARTMENTS = [
